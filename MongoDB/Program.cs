@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Models;
 
@@ -14,19 +15,20 @@ namespace MongoDB
 
             var db = client.GetDatabase("school");
             var collection = db.GetCollection<Student>("students");
-            var students = collection.Find(_ => true).ToList();
 
-            foreach (var student in students)
+            Task.Run(async () =>
             {
-                if (student.Scores.Count(x => x.Type.Equals("homework")) != 2)
+                await collection.Find(_ => true).ForEachAsync(student =>
                 {
-                    continue;
-                }
-                var minScore = student.Scores.Where(x => x.Type.Equals("homework")).OrderBy(x => x.ScoreValue)
-                    .FirstOrDefault();
-                student.Scores.Remove(minScore);
-                collection.ReplaceOne(x => x.Id == student.Id, student);
-            }
+                    if (student.Scores.Count(x => x.Type.Equals("homework")) == 2)
+                    {
+                        var minScore = student.Scores.Where(x => x.Type.Equals("homework")).OrderBy(x => x.ScoreValue)
+                            .FirstOrDefault();
+                        student.Scores.Remove(minScore);
+                        collection.ReplaceOne(x => x.Id == student.Id, student);
+                    }
+                });
+            }).GetAwaiter().GetResult();
 
             Console.WriteLine("Done!");
             Console.ReadKey();
